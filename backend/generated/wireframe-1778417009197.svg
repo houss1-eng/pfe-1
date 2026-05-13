@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#1E293B"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="900" height="600" fill="url(#bg)"/>
+  <!-- Prompt label -->
+  <text x="16" y="22" font-family="Inter,sans-serif" font-size="11" fill="#64748B"
+    font-style="italic">Wireframe: donne moi un page login</text>
+  <!-- Elements -->
+  
+    <rect x="100" y="100" width="600" height="400" rx="8"
+      fill="#f0f0f0"  opacity="0.95"/>
+    <text x="400" y="300" text-anchor="middle" dominant-baseline="middle"
+      font-family="Inter,sans-serif" font-size="14" fill="#9CA3AF"
+      font-weight="400">container</text>
+<text x="400" y="175" text-anchor="middle" dominant-baseline="middle"
+        font-family="Inter,sans-serif" font-size="14" fill="#E5E7EB" font-weight="500">Connexion</text>
+
+    <rect x="200" y="250" width="400" height="50" rx="6"
+      fill="#cccccc" stroke="#D1D5DB" stroke-width="1.5" opacity="0.95"/>
+    <text x="400" y="275" text-anchor="middle" dominant-baseline="middle"
+      font-family="Inter,sans-serif" font-size="14" fill="#374151"
+      font-weight="400">Nom d'utilisateur</text>
+
+    <rect x="200" y="320" width="400" height="50" rx="6"
+      fill="#cccccc" stroke="#D1D5DB" stroke-width="1.5" opacity="0.95"/>
+    <text x="400" y="345" text-anchor="middle" dominant-baseline="middle"
+      font-family="Inter,sans-serif" font-size="14" fill="#374151"
+      font-weight="400">Mot de passe</text>
+
+    <rect x="300" y="400" width="200" height="50" rx="8"
+      fill="#4CAF50"  opacity="0.95"/>
+    <text x="400" y="425" text-anchor="middle" dominant-baseline="middle"
+      font-family="Inter,sans-serif" font-size="14" fill="#ffffff"
+      font-weight="600">Se connecter</text>
+<text x="400" y="475" text-anchor="middle" dominant-baseline="middle"
+        font-family="Inter,sans-serif" font-size="11" fill="#E5E7EB" font-weight="500">Pas encore inscrit ?</text>
+<text x="425" y="515" text-anchor="middle" dominant-baseline="middle"
+        font-family="Inter,sans-serif" font-size="11" fill="#E5E7EB" font-weight="500">Mot de passe oublié ?</text>
+</svg>

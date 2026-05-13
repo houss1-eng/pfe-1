@@ -1,0 +1,186 @@
+{
+  "name": "Wireframe Generation Workflow (HuggingFace)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-wireframe",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "id": "prepare-request",
+      "name": "Prepare Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300],
+      "parameters": {
+        "jsCode": "const prompt = $('Webhook Trigger').item.json.body.prompt;\nconst wireframeId = $('Webhook Trigger').item.json.body.wireframeId;\nconst seed = Math.floor(Math.random() * 9999999);\n\nreturn {\n  json: {\n    wireframeId,\n    hfBody: {\n      inputs: `professional UI wireframe mockup, low-fidelity prototype, grayscale sketch, clean web interface design, labeled boxes and sections, minimal technical blueprint, black and white only: ${prompt}`,\n      parameters: { seed }\n    }\n  }\n};"
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer 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" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Accept", "value": "image/png" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.hfBody) }}",
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "generate-image-hf",
+      "name": "Generate Image (HuggingFace)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [710, 300],
+      "continueOnFail": true,
+      "retryOnFail": true,
+      "maxTries": 2
+    },
+    {
+      "id": "parse-response",
+      "name": "Parse Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 300],
+      "parameters": {
+        "jsCode": "const wireframeId = $('Webhook Trigger').item.json.body.wireframeId;\nconst binaryData = $input.item.binary?.data;\n\nconst jsonBody = $input.item.json;\nif (jsonBody && (jsonBody.error || jsonBody.errors)) {\n  return {\n    json: {\n      success: false,\n      status: 'failed',\n      error: jsonBody.error || 'Erreur API HuggingFace',\n      wireframeId\n    }\n  };\n}\n\nif (!binaryData) {\n  return {\n    json: {\n      success: false,\n      status: 'failed',\n      error: 'Aucune image reçue de HuggingFace',\n      wireframeId\n    }\n  };\n}\n\nconst filename = `wireframe_${wireframeId}_${Date.now()}.png`;\n\nreturn {\n  json: {\n    success: true,\n    status: 'completed',\n    wireframeId,\n    filename\n  },\n  binary: { data: binaryData }\n};"
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "success-check",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "completed",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-status",
+      "name": "Check Status",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1170, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://localhost:5000/api/n8n/upload-image?wireframeId=' + $('Parse Response').item.json.wireframeId + '&filename=' + $('Parse Response').item.json.filename }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "image/png" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": { "timeout": 30000 }
+      },
+      "id": "upload-image",
+      "name": "Upload Image to Backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1400, 160]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5000/api/n8n/webhook/update",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ wireframeId: $json.wireframeId, status: 'failed', error: $json.error }) }}",
+        "options": {}
+      },
+      "id": "notify-backend-error",
+      "name": "Notify Backend (error)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1400, 440]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, wireframeId: $('Parse Response').item.json.wireframeId }) }}",
+        "options": {}
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1630, 160]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $('Parse Response').item.json.error }) }}",
+        "options": { "responseCode": 500 }
+      },
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1630, 440]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Prepare Request", "type": "main", "index": 0 }]]
+    },
+    "Prepare Request": {
+      "main": [[{ "node": "Generate Image (HuggingFace)", "type": "main", "index": 0 }]]
+    },
+    "Generate Image (HuggingFace)": {
+      "main": [[{ "node": "Parse Response", "type": "main", "index": 0 }]]
+    },
+    "Parse Response": {
+      "main": [[{ "node": "Check Status", "type": "main", "index": 0 }]]
+    },
+    "Check Status": {
+      "main": [
+        [{ "node": "Upload Image to Backend", "type": "main", "index": 0 }],
+        [{ "node": "Notify Backend (error)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Upload Image to Backend": {
+      "main": [[{ "node": "Respond Success", "type": "main", "index": 0 }]]
+    },
+    "Notify Backend (error)": {
+      "main": [[{ "node": "Respond Error", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "wireframe", "id": "1" }, { "name": "huggingface", "id": "2" }]
+}
