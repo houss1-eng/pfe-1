@@ -1,4 +1,54 @@
-import React from 'react';
+import React, { useState } from 'react';
+
+const API_URL = 'http://localhost:5000';
+const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
+
+const isImage = (name) => IMAGE_EXTS.some(ext => name.toLowerCase().endsWith(ext));
+
+const FilesSection = ({ files, label, color }) => {
+  const [lightbox, setLightbox] = useState(null);
+  if (!files || files.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color, marginBottom: 6 }}>{label}</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        {files.map((f, i) => {
+          const url = `${API_URL}${f.url}`;
+          if (isImage(f.name)) {
+            return (
+              <div key={i} style={{ position: 'relative' }}>
+                <img
+                  src={url}
+                  alt={f.name}
+                  title={f.name}
+                  onClick={() => setLightbox(url)}
+                  style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, cursor: 'zoom-in', border: '1px solid var(--border)' }}
+                />
+              </div>
+            );
+          }
+          return (
+            <a key={i} href={url} download={f.name} target="_blank" rel="noreferrer"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color, textDecoration: 'none',
+                background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '4px 10px' }}>
+              📎 {f.name}
+            </a>
+          );
+        })}
+      </div>
+
+      {lightbox && (
+        <div onClick={() => setLightbox(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.85)', zIndex: 9999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}>
+          <img src={lightbox} alt="preview"
+            style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: 12, boxShadow: '0 8px 40px rgba(0,0,0,.6)' }} />
+        </div>
+      )}
+    </div>
+  );
+};
 
 const STATUS = {
   new:                  { label: 'Nouveau',              cls: 'bg-muted' },
@@ -107,6 +157,9 @@ const TaskCard = ({ t, fetchTasks, borderClass, showPipeline, children }) => {
         {t.designerNote && <span className="task-meta-item" style={{ color: 'var(--accent-designer)' }}>🎨 {t.designerNote}</span>}
         {t.devNote && <span className="task-meta-item" style={{ color: 'var(--accent-dev)' }}>💻 {t.devNote}</span>}
       </div>
+      <FilesSection files={t.designerFiles} label="🎨 Fichiers Designer" color="var(--accent-designer)" />
+      <FilesSection files={t.devFiles}      label="💻 Fichiers Développeur" color="var(--accent-dev)" />
+      <FilesSection files={t.chefFiles}     label="📋 Fichiers Chef" color="var(--accent-chef)" />
       {showPipeline && <PipelineHtml currentStatus={t.status} />}
       {children}
       <LogHtml log={t.log} />

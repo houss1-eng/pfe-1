@@ -85,4 +85,42 @@ export function getAvatarUrl(filename) {
   return `${API_URL}/uploads/${filename}`;
 }
 
+// ── Contract API ──────────────────────────────────────────────────────────────
+
+export async function sendContract(formData) {
+  const response = await api.post('/api/contracts/send', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+}
+
+export async function getContracts() {
+  const response = await api.get('/api/contracts');
+  return response.data;
+}
+
+export async function uploadSignedContract(contractId, file) {
+  const fd = new FormData();
+  fd.append('pdf', file);
+  const response = await api.post(`/api/contracts/${contractId}/upload-signed`, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+}
+
+export async function returnContractToChef(contractId) {
+  const response = await api.post(`/api/contracts/${contractId}/return`);
+  return response.data;
+}
+
+export async function markContractCompleted(contractId) {
+  const response = await api.put(`/api/contracts/${contractId}/complete`);
+  return response.data;
+}
+
+export function getContractUrl(filename) {
+  if (!filename) return null;
+  return `${API_URL}/uploads/contracts/${filename}`;
+}
+
 export default api;

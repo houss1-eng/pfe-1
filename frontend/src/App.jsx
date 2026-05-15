@@ -5,6 +5,7 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import WireframeGenerator from './components/WireframeGenerator';
 import N8nAutomation from './components/N8nAutomation';
+import ContratGenerator from './components/ContratGenerator';
 
 function App() {
   const { user, loading } = useContext(AuthContext);
@@ -17,6 +18,7 @@ function App() {
       <Route path="/" element={user ? <Dashboard /> : <Navigate to="/login" />} />
       <Route path="/wireframe-generator" element={user ? <WireframeGenerator /> : <Navigate to="/login" />} />
       <Route path="/n8n-automation" element={user ? <N8nAutomation /> : <Navigate to="/login" />} />
+      <Route path="/contrat" element={user ? <ContratGenerator /> : <Navigate to="/login" />} />
     </Routes>
   );
 }

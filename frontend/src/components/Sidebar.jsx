@@ -1,17 +1,30 @@
 import { useContext, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import SettingsModal from './SettingsModal';
+
+const ROUTE_MAP = {
+  'chef-contracts': '/contrat',
+};
 
 const NAV_ITEMS = {
   client: [
     { id: 'client-stats',    icon: '📊', label: 'Tableau de bord' },
     { id: 'client-form',     icon: '✦',  label: 'Nouveau projet'  },
     { id: 'client-projects', icon: '📁', label: 'Mes projets'     },
+    { id: 'client-contracts', icon: '📄', label: 'Mes contrats'    },
   ],
   chef: [
-    { id: 'chef-stats',  icon: '📊', label: 'Tableau de bord'   },
-    { id: 'chef-team',   icon: '👥', label: 'Équipe'            },
-    { id: 'chef-action', icon: '⚡', label: 'Actions requises'  },
-    { id: 'chef-all',    icon: '📁', label: 'Tous les projets'  },
+    { id: 'chef-stats',  icon: '📊', label: 'Tableau de bord'  },
+    { id: 'chef-team',   icon: '👥', label: 'Équipe'           },
+    { id: 'chef-action', icon: '⚡', label: 'Actions requises' },
+    { id: 'chef-all',    icon: '📁', label: 'Tous les projets' },
+    { id: 'chef-clients', icon: '👤', label: 'Clients' },
+    { type: 'section', label: 'Gestion' },
+    { id: 'chef-contracts', icon: '📄', label: 'Contrats & Devis' },
+    { id: 'chef-planning',  icon: '📅', label: 'Planning'          },
+    { id: 'chef-reports',   icon: '📈', label: 'Rapports'          },
+    { id: 'chef-signed',    icon: '🖋️', label: 'Contrats signés'   },
   ],
   designer: [
     { id: 'designer-stats',    icon: '📊', label: 'Tableau de bord'  },
@@ -31,19 +44,29 @@ const ROLE_CONFIG = {
   developer: { label: 'Développeur',    color: '#10b981' },
 };
 
-export default function Sidebar() {
+export default function Sidebar({ onChefNav, chefSection }) {
   const { user, logout } = useContext(AuthContext);
-  const [active, setActive] = useState(null);
+  const navigate = useNavigate();
+  const [scrollActive, setScrollActive] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   const cfg   = ROLE_CONFIG[user?.role] || ROLE_CONFIG.client;
   const items = NAV_ITEMS[user?.role]   || [];
   const color = cfg.color;
 
   const handleNav = (id) => {
-    setActive(id);
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (ROUTE_MAP[id]) {
+      navigate(ROUTE_MAP[id]);
+      return;
+    }
+    if (onChefNav) {
+      onChefNav(id);
+    } else {
+      navigate('/', { state: { section: id } });
+    }
   };
+
+  const activeId = onChefNav ? chefSection : scrollActive;
 
   return (
     <aside className="sidebar">
@@ -60,21 +83,27 @@ export default function Sidebar() {
       {/* Navigation */}
       <nav className="sidebar-nav">
         <div className="sidebar-nav-label">Navigation</div>
-        {items.map(item => (
-          <button
-            key={item.id}
-            className={`sidebar-item${active === item.id ? ' sidebar-item--active' : ''}`}
-            style={active === item.id ? {
-              color,
-              background: `${color}12`,
-              borderLeftColor: color,
-            } : {}}
-            onClick={() => handleNav(item.id)}
-          >
-            <span className="sidebar-item-icon">{item.icon}</span>
-            <span className="sidebar-item-label">{item.label}</span>
-          </button>
-        ))}
+        {items.map(item =>
+          item.type === 'section' ? (
+            <div key={item.label} className="sidebar-nav-label" style={{ marginTop: 14 }}>
+              {item.label}
+            </div>
+          ) : (
+            <button
+              key={item.id}
+              className={`sidebar-item${activeId === item.id ? ' sidebar-item--active' : ''}`}
+              style={activeId === item.id ? {
+                color,
+                background: `${color}12`,
+                borderLeftColor: color,
+              } : {}}
+              onClick={() => handleNav(item.id)}
+            >
+              <span className="sidebar-item-icon">{item.icon}</span>
+              <span className="sidebar-item-label">{item.label}</span>
+            </button>
+          )
+        )}
       </nav>
 
       {/* Spacer */}
@@ -92,10 +121,16 @@ export default function Sidebar() {
             <div className="sidebar-user-email">{user?.email}</div>
           </div>
         </div>
+        <button className="sidebar-logout" style={{ marginBottom: 8 }}
+          onClick={() => setShowSettings(true)}>
+          <span>⚙️</span> Paramètres
+        </button>
         <button className="sidebar-logout" onClick={logout}>
           <span>⏻</span> Déconnexion
         </button>
       </div>
+
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </aside>
   );
 }

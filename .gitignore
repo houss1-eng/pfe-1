@@ -22,4 +22,6 @@ Thumbs.db
 # Editor
 .vscode/*
 !.vscode/extensions.json
-.idea
+# Uploads & Generated
+backend/uploads/
+backend/generated/

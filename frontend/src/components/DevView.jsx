@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import TaskCard from './TaskCard';
+import NotificationPanel from './NotificationPanel';
 
 const EMPTY_FILTERS = { search: '', priority: '', status: '' };
 const PRIORITY_COLORS = { low: '#10b981', medium: '#f59e0b', high: '#ef4444' };
@@ -13,6 +14,8 @@ const SUB_STATUSES = [
 
 export default function DevView() {
   const [notes, setNotes]               = useState({});
+  const [files, setFiles]               = useState({});
+  const [uploading, setUploading]       = useState({});
   const [doneTasks, setDoneTasks]       = useState([]);
 
   // section "Projets assignés" filtrée
@@ -58,21 +61,33 @@ export default function DevView() {
   const updateStatus = async (id, status, logMsg, noteStr) => {
     if (!window.confirm('Confirmer cette action ?')) return;
     try {
+      const taskFiles = files[id];
+      if (taskFiles && taskFiles.length > 0) {
+        setUploading(u => ({ ...u, [id]: true }));
+        const fd = new FormData();
+        Array.from(taskFiles).forEach(f => fd.append('files', f));
+        await axios.post(`http://localhost:5000/api/tasks/${id}/upload/dev`, fd);
+        setUploading(u => ({ ...u, [id]: false }));
+        setFiles(f => ({ ...f, [id]: null }));
+      }
       const data = { status, logMsg };
       if (noteStr !== undefined) data.devNote = noteStr;
       await axios.put(`http://localhost:5000/api/tasks/${id}`, data);
       fetchAssigned(filters);
       fetchDone();
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error(err); setUploading(u => ({ ...u, [id]: false })); }
   };
 
   const hasFilter = filters.search || filters.priority || filters.status;
 
   return (
     <div>
-      <div className="page-header">
-        <div className="page-title">Espace <span className="color-dev">Développeur</span></div>
-        <div className="page-subtitle">Vos projets de développement assignés</div>
+      <div className="page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <div>
+          <div className="page-title">Espace <span className="color-dev">Développeur</span></div>
+          <div className="page-subtitle">Vos projets de développement assignés</div>
+        </div>
+        <NotificationPanel role="developer" />
       </div>
 
       <div id="dev-stats" className="stats-row">
@@ -156,11 +171,24 @@ export default function DevView() {
                   <textarea className="field-textarea" placeholder="Technologies utilisées, fonctionnalités implémentées..."
                     value={notes[t._id] || t.devNote || ''}
                     onChange={e => setNotes({ ...notes, [t._id]: e.target.value })} />
+                  <label className="field-label" style={{ marginTop: 10 }}>Fichiers à joindre</label>
+                  <input type="file" multiple style={{ marginTop: 4, fontSize: 13, color: 'var(--muted)' }}
+                    onChange={e => setFiles(f => ({ ...f, [t._id]: e.target.files }))} />
+                  {files[t._id] && files[t._id].length > 0 && (
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+                      {Array.from(files[t._id]).map(f => f.name).join(', ')}
+                    </div>
+                  )}
                 </div>
               )}
               <div className="task-actions">
                 {!inProgress && <button className="btn-action btn-start" onClick={() => updateStatus(t._id, 'in_progress_dev', 'Développeur a commencé le développement')}>▶ Démarrer le développement</button>}
-                {inProgress && <button className="btn-action btn-done" onClick={() => updateStatus(t._id, 'review_chef_dev', `Développeur a soumis le projet au Chef — "${notes[t._id] || ''}"`, notes[t._id] || '')}>✓ Soumettre au Chef</button>}
+                {inProgress && (
+                  <button className="btn-action btn-done" disabled={uploading[t._id]}
+                    onClick={() => updateStatus(t._id, 'review_chef_dev', `Développeur a soumis le projet au Chef — "${notes[t._id] || ''}"`, notes[t._id] || '')}>
+                    {uploading[t._id] ? '⏳ Envoi...' : '✓ Soumettre au Chef'}
+                  </button>
+                )}
               </div>
             </TaskCard>
           );

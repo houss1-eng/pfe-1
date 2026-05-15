@@ -27,12 +27,13 @@ const TaskSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  designerNote: {
-    type: String,
-  },
-  devNote: {
-    type: String,
-  },
+  deadline: { type: Date },
+  designerNote: { type: String },
+  devNote:      { type: String },
+  chefNote:     { type: String },
+  designerFiles: [{ name: String, url: String, uploadedAt: String }],
+  devFiles:      [{ name: String, url: String, uploadedAt: String }],
+  chefFiles:     [{ name: String, url: String, uploadedAt: String }],
   log: [{
     time: String,
     msg: String

@@ -13,6 +13,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Servir les fichiers uploadés
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Servir les images générées (PNG, SVG)
 app.use('/generated', express.static(path.join(__dirname, 'generated'), {
   setHeaders: (res, filePath) => {
@@ -29,11 +32,16 @@ app.use((req, res, next) => {
 });
 
 // Routes
-app.use('/api/auth', require('./routes/authRoute'));
-app.use('/api/tasks', require('./routes/taskRoute'));
-app.use('/api/wireframes', require('./routes/wireframeRoute'));
-app.use('/api/n8n', require('./routes/n8nRoute'));
-app.use('/api/automation', require('./routes/n8nRoute'));
+app.use('/api/auth',      require('./routes/authRoute'));
+app.use('/api/tasks',     require('./routes/taskRoute'));
+app.use('/api/notifications', require('./routes/notificationRoute'));
+app.use('/api/wireframes',require('./routes/wireframeRoute'));
+app.use('/api/n8n',       require('./routes/n8nRoute'));
+app.use('/api/automation',require('./routes/n8nRoute'));
+app.use('/api/contracts', require('./routes/contractRoute'));
+
+// Serve uploaded contract PDFs (unsigned + signed)
+app.use('/uploads/contracts', express.static(path.join(__dirname, 'uploads/contracts')));
 
 // Route de test sans authentification
 app.get('/api/test', (req, res) => {
