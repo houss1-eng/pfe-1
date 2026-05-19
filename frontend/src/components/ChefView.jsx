@@ -318,11 +318,21 @@ export default function ChefView({ section = 'chef-stats' }) {
                           value={chefNotes[t._id] || ''}
                           onChange={e => setChefNotes(n => ({ ...n, [t._id]: e.target.value }))} />
                         <label className="field-label" style={{ marginTop: 8 }}>Fichiers à joindre</label>
-                        <input type="file" multiple style={{ marginTop: 4, fontSize: 13, color: 'var(--muted)' }}
-                          onChange={e => setChefFiles(f => ({ ...f, [t._id]: e.target.files }))} />
+                        <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                          <label style={{ cursor: 'pointer', fontSize: 13, padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)', color: 'var(--muted)', background: 'var(--surface)' }}>
+                            📄 Fichiers
+                            <input type="file" multiple hidden
+                              onChange={e => setChefFiles(f => ({ ...f, [t._id]: e.target.files }))} />
+                          </label>
+                          <label style={{ cursor: 'pointer', fontSize: 13, padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)', color: 'var(--muted)', background: 'var(--surface)' }}>
+                            📁 Dossier
+                            <input type="file" webkitdirectory="" mozdirectory="" hidden
+                              onChange={e => setChefFiles(f => ({ ...f, [t._id]: e.target.files }))} />
+                          </label>
+                        </div>
                         {chefFiles[t._id] && chefFiles[t._id].length > 0 && (
                           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
-                            {Array.from(chefFiles[t._id]).map(f => f.name).join(', ')}
+                            {chefFiles[t._id].length} fichier{chefFiles[t._id].length > 1 ? 's' : ''} sélectionné{chefFiles[t._id].length > 1 ? 's' : ''}
                           </div>
                         )}
                       </div>
@@ -345,11 +355,21 @@ export default function ChefView({ section = 'chef-stats' }) {
                           value={chefNotes[t._id] || ''}
                           onChange={e => setChefNotes(n => ({ ...n, [t._id]: e.target.value }))} />
                         <label className="field-label" style={{ marginTop: 8 }}>Fichiers à joindre</label>
-                        <input type="file" multiple style={{ marginTop: 4, fontSize: 13, color: 'var(--muted)' }}
-                          onChange={e => setChefFiles(f => ({ ...f, [t._id]: e.target.files }))} />
+                        <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                          <label style={{ cursor: 'pointer', fontSize: 13, padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)', color: 'var(--muted)', background: 'var(--surface)' }}>
+                            📄 Fichiers
+                            <input type="file" multiple hidden
+                              onChange={e => setChefFiles(f => ({ ...f, [t._id]: e.target.files }))} />
+                          </label>
+                          <label style={{ cursor: 'pointer', fontSize: 13, padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)', color: 'var(--muted)', background: 'var(--surface)' }}>
+                            📁 Dossier
+                            <input type="file" webkitdirectory="" mozdirectory="" hidden
+                              onChange={e => setChefFiles(f => ({ ...f, [t._id]: e.target.files }))} />
+                          </label>
+                        </div>
                         {chefFiles[t._id] && chefFiles[t._id].length > 0 && (
                           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
-                            {Array.from(chefFiles[t._id]).map(f => f.name).join(', ')}
+                            {chefFiles[t._id].length} fichier{chefFiles[t._id].length > 1 ? 's' : ''} sélectionné{chefFiles[t._id].length > 1 ? 's' : ''}
                           </div>
                         )}
                       </div>

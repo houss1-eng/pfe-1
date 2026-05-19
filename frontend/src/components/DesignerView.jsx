@@ -4,8 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import TaskCard from './TaskCard';
 import NotificationPanel from './NotificationPanel';
 
-const API_URL = 'http://localhost:5000';
-const toAbs  = (url) => (url && url.startsWith('/') ? `${API_URL}${url}` : url);
 
 const EMPTY_FILTERS = { search: '', priority: '', status: '' };
 const PRIORITY_COLORS = { low: '#10b981', medium: '#f59e0b', high: '#ef4444' };
@@ -29,11 +27,6 @@ export default function DesignerView() {
   const [filters, setFilters]           = useState(EMPTY_FILTERS);
   const debounceRef                     = useRef(null);
 
-  // Mes Wireframes
-  const [showWireframes, setShowWireframes] = useState(false);
-  const [myWireframes, setMyWireframes]     = useState([]);
-  const [wfLoading, setWfLoading]           = useState(false);
-  const [viewingWf, setViewingWf]           = useState(null);
 
   /* ── fetch projets "en revue chef" (non filtrés) ── */
   const fetchDone = async () => {
@@ -57,21 +50,6 @@ export default function DesignerView() {
       setAssigned(res.data);
     } catch (err) { console.error(err); }
     finally { setAssignedLoading(false); }
-  };
-
-  const fetchMyWireframes = async () => {
-    setWfLoading(true);
-    try {
-      const res = await axios.get('http://localhost:5000/api/wireframes');
-      setMyWireframes(res.data.wireframes || []);
-    } catch (err) { console.error(err); }
-    finally { setWfLoading(false); }
-  };
-
-  const toggleWireframes = () => {
-    if (!showWireframes) fetchMyWireframes();
-    setShowWireframes(v => !v);
-    setViewingWf(null);
   };
 
   useEffect(() => { fetchDone(); fetchAssigned(EMPTY_FILTERS); }, []);
@@ -126,80 +104,13 @@ export default function DesignerView() {
       <div id="designer-tools" className="design-tools-section">
         <div className="section-title">🎨 Outils de Design</div>
         <div className="tools-grid">
-          <div className="tool-card" onClick={() => navigate('/wireframe-generator')}>
-            <div className="tool-icon">🖼️</div>
-            <h3>Générateur Manuel</h3>
-            <p>Créez des maquettes interactives avec glisser-déposer</p>
-            <button className="btn-primary">Lancer</button>
-          </div>
           <div className="tool-card" onClick={() => navigate('/n8n-automation')}>
             <div className="tool-icon">🤖</div>
             <h3>Génération IA (n8n)</h3>
             <p>Générez des wireframes automatiquement avec l'IA</p>
             <button className="btn-primary">Automatiser</button>
           </div>
-          <div className="tool-card" onClick={toggleWireframes}>
-            <div className="tool-icon">📁</div>
-            <h3>Mes Wireframes</h3>
-            <p>Consultez et gérez toutes vos créations sauvegardées</p>
-            <button className="btn-primary" style={{ background: showWireframes ? 'linear-gradient(135deg,#ec4899,#be185d)' : undefined }}>
-              {showWireframes ? '▲ Masquer' : '▼ Voir'}
-            </button>
-          </div>
         </div>
-
-        {/* ── LISTE DES WIREFRAMES SAUVEGARDÉS ── */}
-        {showWireframes && (
-          <div className="my-wireframes-panel">
-            {wfLoading && <p className="wf-loading">Chargement…</p>}
-            {!wfLoading && myWireframes.length === 0 && (
-              <div className="empty-state" style={{ padding: '32px 0' }}>
-                <div className="empty-icon">🖼️</div>
-                <div className="empty-text">Aucun wireframe sauvegardé.</div>
-              </div>
-            )}
-            {!wfLoading && myWireframes.map(wf => (
-              <div key={wf._id} className="wf-item">
-                <div className="wf-item-info">
-                  <div className="wf-item-name">{wf.name}</div>
-                  {wf.description && <div className="wf-item-desc">{wf.description}</div>}
-                  <div className="wf-item-meta">
-                    {new Date(wf.createdAt).toLocaleDateString('fr-FR')}
-                    {wf.elements?.length > 0 && <span> · {wf.elements.length} élément{wf.elements.length > 1 ? 's' : ''}</span>}
-                  </div>
-                </div>
-                <button
-                  className="wf-view-btn"
-                  onClick={e => { e.stopPropagation(); setViewingWf(viewingWf === wf._id ? null : wf._id); }}
-                >
-                  {viewingWf === wf._id ? '🙈 Masquer' : '👁️ Voir'}
-                </button>
-
-                {viewingWf === wf._id && (
-                  <div className="wf-preview-inline">
-                    {wf.imageUrl && wf.imageUrl.endsWith('.png') ? (
-                      <img src={`${toAbs(wf.imageUrl)}`} alt={wf.name} className="wf-preview-img" />
-                    ) : wf.imageUrl ? (
-                      <img src={`${toAbs(wf.imageUrl)}`} alt={wf.name} className="wf-preview-img" />
-                    ) : (
-                      <div className="wf-no-preview">Aperçu non disponible</div>
-                    )}
-                    {wf.imageUrl && (
-                      <a
-                        href={toAbs(wf.imageUrl)}
-                        download={`wireframe-${wf._id}`}
-                        className="wf-download-btn"
-                        onClick={e => e.stopPropagation()}
-                      >
-                        ⬇️ Télécharger
-                      </a>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* ── TITRE + FILTRE ── */}
@@ -278,11 +189,21 @@ export default function DesignerView() {
                     value={notes[t._id] || t.designerNote || ''}
                     onChange={e => setNotes({ ...notes, [t._id]: e.target.value })} />
                   <label className="field-label" style={{ marginTop: 10 }}>Fichiers à joindre</label>
-                  <input type="file" multiple style={{ marginTop: 4, fontSize: 13, color: 'var(--muted)' }}
-                    onChange={e => setFiles(f => ({ ...f, [t._id]: e.target.files }))} />
+                  <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                    <label style={{ cursor: 'pointer', fontSize: 13, padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)', color: 'var(--muted)', background: 'var(--surface)' }}>
+                      📄 Fichiers
+                      <input type="file" multiple hidden
+                        onChange={e => setFiles(f => ({ ...f, [t._id]: e.target.files }))} />
+                    </label>
+                    <label style={{ cursor: 'pointer', fontSize: 13, padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)', color: 'var(--muted)', background: 'var(--surface)' }}>
+                      📁 Dossier
+                      <input type="file" webkitdirectory="" mozdirectory="" hidden
+                        onChange={e => setFiles(f => ({ ...f, [t._id]: e.target.files }))} />
+                    </label>
+                  </div>
                   {files[t._id] && files[t._id].length > 0 && (
                     <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
-                      {Array.from(files[t._id]).map(f => f.name).join(', ')}
+                      {files[t._id].length} fichier{files[t._id].length > 1 ? 's' : ''} sélectionné{files[t._id].length > 1 ? 's' : ''}
                     </div>
                   )}
                 </div>

@@ -28,6 +28,8 @@ const upload = multer({
   limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
 });
 
+router.post('/save',               auth, ctrl.saveContract);
+router.get('/saved',               auth, ctrl.getSavedContracts);
 router.post('/send',               auth, upload.single('pdf'), ctrl.sendToClient);
 router.get('/',                    auth, ctrl.getContracts);
 router.post('/:id/upload-signed',  auth, upload.single('pdf'), ctrl.uploadSigned);

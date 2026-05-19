@@ -4,7 +4,9 @@ import { AuthContext } from '../context/AuthContext';
 import SettingsModal from './SettingsModal';
 
 const ROUTE_MAP = {
-  'chef-contracts': '/contrat',
+  'chef-contracts':      '/contrat',
+  'designer-wireframes': '/mes-wireframes',
+  'designer-history':    '/historique-ia',
 };
 
 const NAV_ITEMS = {
@@ -27,9 +29,11 @@ const NAV_ITEMS = {
     { id: 'chef-signed',    icon: '🖋️', label: 'Contrats signés'   },
   ],
   designer: [
-    { id: 'designer-stats',    icon: '📊', label: 'Tableau de bord'  },
-    { id: 'designer-tools',    icon: '🎨', label: 'Outils Design'    },
-    { id: 'designer-projects', icon: '📋', label: 'Projets assignés' },
+    { id: 'designer-stats',      icon: '📊', label: 'Tableau de bord'  },
+    { id: 'designer-tools',      icon: '🎨', label: 'Outils Design'    },
+    { id: 'designer-projects',   icon: '📋', label: 'Projets assignés' },
+    { id: 'designer-wireframes', icon: '📁', label: 'Mes Wireframes'   },
+    { id: 'designer-history',    icon: '📚', label: 'Historique IA'    },
   ],
   developer: [
     { id: 'dev-stats',    icon: '📊', label: 'Tableau de bord'  },
@@ -44,10 +48,10 @@ const ROLE_CONFIG = {
   developer: { label: 'Développeur',    color: '#10b981' },
 };
 
-export default function Sidebar({ onChefNav, chefSection }) {
+export default function Sidebar({ onChefNav, chefSection, activeSection }) {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
-  const [scrollActive, setScrollActive] = useState(null);
+  const [scrollActive] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
 
   const cfg   = ROLE_CONFIG[user?.role] || ROLE_CONFIG.client;
@@ -66,7 +70,7 @@ export default function Sidebar({ onChefNav, chefSection }) {
     }
   };
 
-  const activeId = onChefNav ? chefSection : scrollActive;
+  const activeId = onChefNav ? chefSection : (activeSection || scrollActive);
 
   return (
     <aside className="sidebar">

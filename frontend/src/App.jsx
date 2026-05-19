@@ -6,6 +6,8 @@ import Dashboard from './components/Dashboard';
 import WireframeGenerator from './components/WireframeGenerator';
 import N8nAutomation from './components/N8nAutomation';
 import ContratGenerator from './components/ContratGenerator';
+import MesWireframesPage from './components/MesWireframesPage';
+import HistoriqueIAPage from './components/HistoriqueIAPage';
 
 function App() {
   const { user, loading } = useContext(AuthContext);
@@ -19,6 +21,8 @@ function App() {
       <Route path="/wireframe-generator" element={user ? <WireframeGenerator /> : <Navigate to="/login" />} />
       <Route path="/n8n-automation" element={user ? <N8nAutomation /> : <Navigate to="/login" />} />
       <Route path="/contrat" element={user ? <ContratGenerator /> : <Navigate to="/login" />} />
+      <Route path="/mes-wireframes" element={user ? <MesWireframesPage /> : <Navigate to="/login" />} />
+      <Route path="/historique-ia" element={user ? <HistoriqueIAPage /> : <Navigate to="/login" />} />
     </Routes>
   );
 }

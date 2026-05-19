@@ -61,17 +61,12 @@ const N8nAutomation = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStatus, setGenerationStatus] = useState(null);
   const [templates, setTemplates] = useState([]);
-  const [automatedWireframes, setAutomatedWireframes] = useState([]);
   const [activeTab, setActiveTab] = useState('generate');
   const [generatedWireframe, setGeneratedWireframe] = useState(null);
   const [pollingInterval, setPollingInterval] = useState(null);
-  const [savedIds, setSavedIds] = useState(new Set());
-  const [savingId, setSavingId] = useState(null);
-  const [viewingId, setViewingId] = useState(null);
 
   useEffect(() => {
     fetchTemplates();
-    fetchAutomatedWireframes();
   }, []);
 
   const fetchTemplates = async () => {
@@ -82,17 +77,6 @@ const N8nAutomation = () => {
       }
     } catch (error) {
       console.error('Erreur lors de la récupération des templates:', error);
-    }
-  };
-
-  const fetchAutomatedWireframes = async () => {
-    try {
-      const response = await api.get('/api/automation/automated');
-      if (response.data.success) {
-        setAutomatedWireframes(response.data.wireframes);
-      }
-    } catch (error) {
-      console.error('Erreur lors de la récupération des wireframes automatisés:', error);
     }
   };
 
@@ -120,8 +104,6 @@ const N8nAutomation = () => {
         setPrompt('');
         setProjectName('');
         setDescription('');
-        fetchAutomatedWireframes();
-        
         // Démarrer le polling pour vérifier le statut
         if (response.data.wireframe && response.data.wireframe._id) {
           startPolling(response.data.wireframe._id);
@@ -157,9 +139,6 @@ const N8nAutomation = () => {
           if (response.data.wireframe.status === 'completed' || response.data.wireframe.status === 'failed') {
             clearInterval(interval);
             setPollingInterval(null);
-            if (response.data.wireframe.status === 'completed') {
-              fetchAutomatedWireframes();
-            }
           }
         }
       } catch (error) {
@@ -182,28 +161,6 @@ const N8nAutomation = () => {
     setPrompt(template.prompt);
     setProjectName(template.name);
     setDescription(template.description);
-  };
-
-  const saveToMyWireframes = async (wireframe) => {
-    setSavingId(wireframe._id);
-    try {
-      await api.post('/api/wireframes', {
-        name: wireframe.name,
-        description: wireframe.description || '',
-        elements: wireframe.elements || [],
-        imageUrl: wireframe.imageUrl || null,
-      });
-      setSavedIds(prev => new Set([...prev, wireframe._id]));
-    } catch (error) {
-      console.error('Erreur sauvegarde:', error);
-      alert('Erreur lors de la sauvegarde.');
-    } finally {
-      setSavingId(null);
-    }
-  };
-
-  const toggleView = (id) => {
-    setViewingId(prev => (prev === id ? null : id));
   };
 
   const getStatusColor = (status) => {
@@ -243,12 +200,6 @@ const N8nAutomation = () => {
           onClick={() => setActiveTab('templates')}
         >
           📋 Templates
-        </button>
-        <button 
-          className={`tab-button ${activeTab === 'history' ? 'active' : ''}`}
-          onClick={() => setActiveTab('history')}
-        >
-          📚 Historique
         </button>
       </div>
 
@@ -453,103 +404,6 @@ const N8nAutomation = () => {
         </div>
       )}
 
-      {activeTab === 'history' && (
-        <div className="tab-content">
-          <div className="history-list">
-            {automatedWireframes.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">📚</div>
-                <div className="empty-text">Aucun wireframe généré automatiquement</div>
-              </div>
-            ) : (
-              automatedWireframes.map((wireframe) => {
-                const isViewing = viewingId === wireframe._id;
-                const isSaved   = savedIds.has(wireframe._id);
-                const isSaving  = savingId === wireframe._id;
-                const isPng     = wireframe.imageUrl && wireframe.imageUrl.endsWith('.png');
-                const hasElems  = wireframe.elements && wireframe.elements.length > 0;
-
-                return (
-                  <div key={wireframe._id} className="history-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 0 }}>
-                    {/* ── ligne principale ── */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 20px' }}>
-                      <div className="history-info" style={{ flex: 1 }}>
-                        <h4>{wireframe.name}</h4>
-                        {wireframe.description && <p>{wireframe.description}</p>}
-                        <div className="history-meta">
-                          <span className="date">{new Date(wireframe.createdAt).toLocaleDateString()}</span>
-                          <span className="status-badge" style={{ backgroundColor: getStatusColor(wireframe.status) }}>
-                            {getStatusText(wireframe.status)}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="history-actions" style={{ flexShrink: 0 }}>
-                        {wireframe.status === 'completed' && (
-                          <>
-                            {/* Voir */}
-                            <button
-                              className="view-button"
-                              style={{ opacity: (isPng || hasElems) ? 1 : 0.4 }}
-                              disabled={!isPng && !hasElems}
-                              onClick={() => toggleView(wireframe._id)}
-                            >
-                              {isViewing ? '🙈 Masquer' : '👁️ Voir'}
-                            </button>
-
-                            {/* Sauvegarder */}
-                            <button
-                              className="save-wf-button"
-                              disabled={isSaved || isSaving}
-                              onClick={() => saveToMyWireframes(wireframe)}
-                            >
-                              {isSaving ? '⏳ …' : isSaved ? '✅ Sauvegardé' : '💾 Sauvegarder'}
-                            </button>
-                          </>
-                        )}
-                        {wireframe.status === 'generating' && (
-                          <button className="refresh-button" onClick={fetchAutomatedWireframes}>
-                            🔄 Actualiser
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* ── aperçu inline ── */}
-                    {isViewing && wireframe.status === 'completed' && (
-                      <div className="history-preview">
-                        {isPng ? (
-                          <img
-                            src={`${toAbsoluteUrl(wireframe.imageUrl)}?v=${wireframe.updatedAt || ''}`}
-                            alt={wireframe.name}
-                            className="history-preview-img"
-                          />
-                        ) : hasElems ? (
-                          <WireframePreview elements={wireframe.elements} name={wireframe.name} />
-                        ) : null}
-                        {(isPng || wireframe.imageUrl) && (
-                          <button
-                            className="download-button"
-                            style={{ marginTop: 10 }}
-                            onClick={() => {
-                              const link = document.createElement('a');
-                              link.href = toAbsoluteUrl(wireframe.imageUrl);
-                              link.download = `wireframe-${wireframe._id}.${isPng ? 'png' : 'svg'}`;
-                              link.click();
-                            }}
-                          >
-                            ⬇️ Télécharger
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

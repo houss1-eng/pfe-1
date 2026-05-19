@@ -12,7 +12,7 @@ const api = axios.create({
 
 // Attach JWT token to every request
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("proflow_token") || localStorage.getItem("token");
+  const token = localStorage.getItem("proflow_token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -20,7 +20,7 @@ api.interceptors.request.use((config) => {
 });
 
 export async function generateWireframe(prompt) {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("proflow_token");
   const response = await axios.post(
     N8N_WEBHOOK_URL,
     { prompt, token },

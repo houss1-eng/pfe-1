@@ -1,15 +1,22 @@
-const Contract = require('../models/Contract');
-const axios    = require('axios');
-const path     = require('path');
-const fs       = require('fs');
+const Contract      = require('../models/Contract');
+const SavedContract = require('../models/SavedContract');
+const axios         = require('axios');
+const path          = require('path');
+const fs            = require('fs');
 
-const N8N_BASE = process.env.N8N_BASE_URL || 'http://localhost:5678';
-const API_BASE = process.env.API_BASE_URL  || 'http://localhost:5000';
+const N8N_CONTRACT_WEBHOOK = process.env.N8N_CONTRACT_WEBHOOK_URL || 'http://localhost:5678/webhook/proflow-send-contract';
+const N8N_RETURN_WEBHOOK   = process.env.N8N_RETURN_WEBHOOK_URL   || 'http://localhost:5678/webhook/proflow-return-signed';
+const API_BASE             = process.env.API_BASE_URL              || 'http://localhost:5000';
+const PORTAL_BASE_URL      = process.env.PORTAL_BASE_URL           || 'http://localhost:3000/portal';
 
 // ── Chef: send unsigned contract to client ────────────────────────────────────
 exports.sendToClient = async (req, res) => {
   try {
-    const { ref, title, clientEmail, clientName } = req.body;
+    const {
+      ref, title, clientEmail, clientName,
+      projectTitle, prestataireEmail, prestataireCompany, prestataireTel,
+      montantTtc, devise, dateSignature,
+    } = req.body;
     const file = req.file;
 
     if (!file || !ref || !title || !clientEmail || !clientName) {
@@ -29,18 +36,27 @@ exports.sendToClient = async (req, res) => {
       sentAt:      new Date(),
     });
 
-    const downloadUrl = `${API_BASE}/uploads/contracts/${file.filename}`;
+    const pdfUrl   = `${API_BASE}/uploads/contracts/${file.filename}`;
+    const filename = `Contrat_${ref}.pdf`;
 
-    // Fire-and-forget n8n trigger
-    axios.post(`${N8N_BASE}/webhook/contract-to-client`, {
-      contractId: contract._id,
-      ref,
-      title,
-      clientEmail,
-      clientName,
-      chefName:    req.user.name,
-      downloadUrl,
-    }).catch(err => console.error('[n8n] contract-to-client:', err.message));
+    // Fire-and-forget: trigger n8n "ProFlow — 1. Chef envoie contrat au client"
+    axios.post(N8N_CONTRACT_WEBHOOK, {
+      pdf_url:             pdfUrl,
+      filename,
+      contract_ref:        ref,
+      client_name:         clientName,
+      project_title:       projectTitle || title,
+      chef_projet:         req.user.name,
+      prestataire_email:   prestataireEmail   || req.user.email,
+      prestataire_company: prestataireCompany || '',
+      prestataire_tel:     prestataireTel     || '',
+      montant_ttc:         montantTtc         || '',
+      devise:              devise             || 'TND',
+      date_signature:      dateSignature      || '',
+      client_email:        clientEmail,
+      portal_base_url:     PORTAL_BASE_URL,
+      return_webhook_url:  N8N_RETURN_WEBHOOK,
+    }).catch(err => console.error('[n8n] proflow-send-contract:', err.message));
 
     res.status(201).json({ message: 'Contrat envoyé avec succès', contract });
   } catch (err) {
@@ -106,7 +122,7 @@ exports.returnToChef = async (req, res) => {
 
     const signedUrl = `${API_BASE}/uploads/contracts/${contract.signedFilename}`;
 
-    axios.post(`${N8N_BASE}/webhook/signed-contract-returned`, {
+    axios.post(N8N_RETURN_WEBHOOK, {
       contractId:       contract._id,
       ref:              contract.ref,
       title:            contract.title,
@@ -120,6 +136,35 @@ exports.returnToChef = async (req, res) => {
     res.json({ message: 'Contrat signé envoyé au chef de projet', contract });
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err.message });
+  }
+};
+
+// ── Chef: save contract draft ─────────────────────────────────────────────────
+exports.saveContract = async (req, res) => {
+  try {
+    const { ref, clientEmail, formData } = req.body;
+    if (!ref || !clientEmail || !formData)
+      return res.status(400).json({ message: 'Données manquantes (ref, clientEmail, formData)' });
+
+    const saved = await SavedContract.findOneAndUpdate(
+      { chefId: req.user.id, ref },
+      { chefEmail: req.user.email, clientEmail, ref, formData },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    res.status(200).json({ message: 'Contrat sauvegardé', saved });
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur serveur', error: err.message });
+  }
+};
+
+// ── Chef: get saved contracts ─────────────────────────────────────────────────
+exports.getSavedContracts = async (req, res) => {
+  try {
+    const saved = await SavedContract.find({ chefId: req.user.id }).sort({ updatedAt: -1 });
+    res.json(saved);
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur serveur' });
   }
 };
 

@@ -1,0 +1,114 @@
+{
+  "name": "ProFlow — 1. Chef envoie contrat au client",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "proflow-send-contract",
+        "responseMode": "responseNode",
+        "options": { "allowedOrigins": "*" }
+      },
+      "id": "node-send-01",
+      "name": "📥 Réception depuis ProFlow",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\nconst portalBase    = data.portal_base_url  || 'http://localhost:3000/portal';\nconst returnWebhook = data.return_webhook_url || 'http://localhost:5678/webhook/proflow-return-signed';\n\nconst portalParams = new URLSearchParams({\n  ref:            data.contract_ref    || '',\n  client:         data.client_name     || '',\n  project:        data.project_title   || '',\n  chef:           data.chef_projet     || '',\n  chef_email:     data.prestataire_email || '',\n  montant:        data.montant_ttc     || '',\n  devise:         data.devise          || 'TND',\n  date:           data.date_signature  || '',\n  client_email:   data.client_email    || '',\n  return_webhook: returnWebhook,\n});\n\nreturn [{\n  json: {\n    ...data,\n    portal_url: `${portalBase}?${portalParams.toString()}`,\n    filename:   data.filename || `Contrat_${data.contract_ref}.pdf`\n  }\n}];"
+      },
+      "id": "node-send-02",
+      "name": "⚙️ Construire URL portail",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.pdf_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "attachment"
+            }
+          }
+        }
+      },
+      "id": "node-send-03",
+      "name": "📎 Télécharger PDF depuis serveur",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('⚙️ Construire URL portail').item.json.prestataire_email }}",
+        "toEmail": "={{ $('⚙️ Construire URL portail').item.json.client_email }}",
+        "subject": "={{ 'Votre contrat à signer — ' + $('⚙️ Construire URL portail').item.json.contract_ref + ' — ' + $('⚙️ Construire URL portail').item.json.project_title }}",
+        "emailType": "html",
+        "message": "<!DOCTYPE html><html><head><meta charset='UTF-8'/><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Helvetica Neue',Arial,sans-serif;background:#EEF0F8;color:#2E3A5C}.wrap{max-width:600px;margin:0 auto;background:#fff}.header{background:#0B1120;padding:28px 32px}.logo{color:#fff;font-size:20px;font-weight:800}.logo span{color:#1A3FFF}.hero{background:#1A3FFF;padding:28px 32px;text-align:center}.hero-title{color:#fff;font-size:20px;font-weight:800;margin-bottom:6px}.hero-sub{color:rgba(255,255,255,.75);font-size:13px}.body{padding:28px 32px}.greeting{font-size:16px;font-weight:700;color:#0B1120;margin-bottom:12px}.text{font-size:14px;line-height:1.75;color:#2E3A5C;margin-bottom:14px}.box{background:#F5F6FB;border-left:4px solid #1A3FFF;border-radius:0 10px 10px 0;padding:14px 18px;margin:18px 0}.box-title{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#6B7498;margin-bottom:10px}.row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #DDE1F0;font-size:13px}.row:last-child{border-bottom:none}.row-key{color:#6B7498}.row-val{font-weight:600;color:#0B1120}.amount{background:#1A3FFF;border-radius:12px;padding:16px;text-align:center;margin:18px 0}.amount-label{color:rgba(255,255,255,.7);font-size:11px;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px}.amount-val{color:#fff;font-size:24px;font-weight:800}.cta-wrap{text-align:center;margin:24px 0}.cta-btn{display:inline-block;background:#1A3FFF;color:#fff;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;text-decoration:none}.steps{background:#F5F6FB;border-radius:10px;padding:14px 18px;margin:18px 0}.steps-title{font-size:11px;font-weight:700;letter-spacing:.8px;color:#6B7498;text-transform:uppercase;margin-bottom:10px}.step-row{display:flex;align-items:flex-start;gap:12px;padding:6px 0}.step-num{width:22px;height:22px;border-radius:50%;background:#1A3FFF;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}.step-text{font-size:13px;color:#2E3A5C}.footer{background:#F5F6FB;padding:18px 32px;border-top:1px solid #DDE1F0;font-size:11px;color:#A8AECA;text-align:center}</style></head><body><div class='wrap'><div class='header'><div class='logo'>Pro<span>Flow</span></div></div><div class='hero'><div class='hero-title'>Votre contrat est prêt à signer</div><div class='hero-sub'>={{ $('⚙️ Construire URL portail').item.json.project_title }}</div></div><div class='body'><div class='greeting'>Bonjour ={{ $('⚙️ Construire URL portail').item.json.client_name }},</div><p class='text'>Votre contrat est prêt. Téléchargez-le en pièce jointe, signez-le et retournez-le via le portail sécurisé.</p><div class='box'><div class='box-title'>Détails du contrat</div><div class='row'><span class='row-key'>Référence</span><span class='row-val'>={{ $('⚙️ Construire URL portail').item.json.contract_ref }}</span></div><div class='row'><span class='row-key'>Projet</span><span class='row-val'>={{ $('⚙️ Construire URL portail').item.json.project_title }}</span></div><div class='row'><span class='row-key'>Date</span><span class='row-val'>={{ $('⚙️ Construire URL portail').item.json.date_signature }}</span></div><div class='row'><span class='row-key'>Chef de projet</span><span class='row-val'>={{ $('⚙️ Construire URL portail').item.json.chef_projet }}</span></div></div><div class='amount'><div class='amount-label'>Montant total TTC</div><div class='amount-val'>={{ $('⚙️ Construire URL portail').item.json.montant_ttc }}</div></div><div class='steps'><div class='steps-title'>Comment procéder</div><div class='step-row'><div class='step-num'>1</div><div class='step-text'><b>Téléchargez</b> le PDF joint</div></div><div class='step-row'><div class='step-num'>2</div><div class='step-text'><b>Signez-le</b> (scan ou signature électronique)</div></div><div class='step-row'><div class='step-num'>3</div><div class='step-text'><b>Retournez-le</b> via le portail ci-dessous</div></div></div><div class='cta-wrap'><a href='={{ $('⚙️ Construire URL portail').item.json.portal_url }}' class='cta-btn'>Accéder au portail →</a></div></div><div class='footer'>={{ $('⚙️ Construire URL portail').item.json.prestataire_company }} · ={{ $('⚙️ Construire URL portail').item.json.prestataire_email }}</div></div></body></html>",
+        "options": {
+          "attachments": "attachment"
+        }
+      },
+      "id": "node-send-04",
+      "name": "📧 Email → Client (contrat + lien portail)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [920, 160],
+      "credentials": {
+        "smtp": { "id": "smtp-proflow", "name": "SMTP ProFlow" }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('⚙️ Construire URL portail').item.json.prestataire_email }}",
+        "toEmail": "={{ $('⚙️ Construire URL portail').item.json.prestataire_email }}",
+        "subject": "={{ '[ProFlow] Contrat envoyé — ' + $('⚙️ Construire URL portail').item.json.contract_ref + ' — ' + $('⚙️ Construire URL portail').item.json.client_name }}",
+        "emailType": "html",
+        "message": "<!DOCTYPE html><html><head><meta charset='UTF-8'/><style>body{font-family:Arial,sans-serif;color:#2E3A5C;background:#EEF0F8}.wrap{max-width:540px;margin:0 auto;background:#fff}.hdr{background:#009E7E;padding:18px 24px;color:#fff;font-size:16px;font-weight:800}.badge{background:rgba(255,255,255,.2);display:inline-block;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;margin-top:5px}.body{padding:20px 24px;font-size:13.5px;line-height:1.7}.info{background:#F5F6FB;border-radius:8px;padding:12px 16px;margin:14px 0;font-size:12.5px}.info-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #DDE1F0}.info-row:last-child{border-bottom:none}.info-key{color:#6B7498}.info-val{font-weight:600}.foot{background:#F5F6FB;padding:12px 24px;font-size:10.5px;color:#A8AECA;border-top:1px solid #DDE1F0}</style></head><body><div class='wrap'><div class='hdr'>ProFlow · Confirmation envoi<div class='badge'>✓ Contrat transmis au client</div></div><div class='body'><p>Bonjour <b>={{ $('⚙️ Construire URL portail').item.json.chef_projet }}</b>,</p><p>Le contrat <b>={{ $('⚙️ Construire URL portail').item.json.contract_ref }}</b> a été envoyé au client avec succès.</p><div class='info'><div class='info-row'><span class='info-key'>Client</span><span class='info-val'>={{ $('⚙️ Construire URL portail').item.json.client_name }}</span></div><div class='info-row'><span class='info-key'>E-mail client</span><span class='info-val'>={{ $('⚙️ Construire URL portail').item.json.client_email }}</span></div><div class='info-row'><span class='info-key'>Projet</span><span class='info-val'>={{ $('⚙️ Construire URL portail').item.json.project_title }}</span></div><div class='info-row'><span class='info-key'>Montant TTC</span><span class='info-val'>={{ $('⚙️ Construire URL portail').item.json.montant_ttc }}</span></div><div class='info-row'><span class='info-key'>Envoyé le</span><span class='info-val'>={{ $now.format('DD/MM/YYYY à HH:mm') }}</span></div></div></div><div class='foot'>ProFlow · Système automatisé</div></div></body></html>",
+        "options": {}
+      },
+      "id": "node-send-05",
+      "name": "📧 Notif Chef de projet",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [920, 440],
+      "credentials": {
+        "smtp": { "id": "smtp-proflow", "name": "SMTP ProFlow" }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, message: 'Contrat envoyé au client', portal_url: $('⚙️ Construire URL portail').item.json.portal_url, sent_at: $now.toISO() }) }}"
+      },
+      "id": "node-send-06",
+      "name": "✅ Réponse webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1160, 300]
+    }
+  ],
+  "connections": {
+    "📥 Réception depuis ProFlow": {
+      "main": [[{ "node": "⚙️ Construire URL portail", "type": "main", "index": 0 }]]
+    },
+    "⚙️ Construire URL portail": {
+      "main": [[{ "node": "📎 Télécharger PDF depuis serveur", "type": "main", "index": 0 }]]
+    },
+    "📎 Télécharger PDF depuis serveur": {
+      "main": [[
+        { "node": "📧 Email → Client (contrat + lien portail)", "type": "main", "index": 0 },
+        { "node": "📧 Notif Chef de projet", "type": "main", "index": 0 }
+      ]]
+    },
+    "📧 Email → Client (contrat + lien portail)": {
+      "main": [[{ "node": "✅ Réponse webhook", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "ProFlow" }, { "name": "Contrats" }]
+}

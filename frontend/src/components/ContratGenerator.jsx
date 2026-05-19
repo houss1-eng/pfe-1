@@ -4,6 +4,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
+import api from '../services/api';
 import Sidebar from './Sidebar';
 import './ContratGenerator.css';
 
@@ -23,14 +24,14 @@ const DEFAULT_FORM = {
   p_rc: 'RC B123456789',
   p_address: '12 Rue des Développeurs, 1002 Tunis, Tunisie',
   p_tel: '+216 71 000 000',
-  p_email: 'contact@proflow.tn',
+  p_email: 'houssem2018.abidi@gmail.com',
   p_web: 'www.proflow.tn',
   p_rep: 'Karim Benali, Chef de projet',
   c_name: 'Yassine Belkaid',
   c_company: 'TechStart SARL',
   c_address: "45 Avenue de la République, 4000 Sousse, Tunisie",
   c_tel: '+216 55 123 456',
-  c_email: 'yassine.belkaid@techstart.tn',
+  c_email: 'houssem2018.abidi@gmail.com',
   c_role: 'Directeur Général',
   c_rc: '',
   ct_ref: 'CONTRAT-2025-047',
@@ -807,6 +808,47 @@ export default function ContratGenerator() {
     }
   };
 
+  const [saving, setSaving] = useState(false);
+
+  const handleSaveContract = async () => {
+    if (!form.ct_ref) return showToast('Référence contrat manquante', 'error');
+    setSaving(true);
+    try {
+      const payload = {
+        ref:         form.ct_ref,
+        clientEmail: form.c_email,
+        savedAt:     new Date().toISOString(),
+        form,
+        livrables,
+        echeances,
+      };
+
+      // 1. Sauvegarde en base de données
+      const token = localStorage.getItem('proflow_token');
+      await axios.post(
+        'http://localhost:5000/api/contracts/save',
+        { ref: form.ct_ref, clientEmail: form.c_email, formData: payload },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // 2. Téléchargement JSON local
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `${form.ct_ref || 'contrat'}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      showToast('Contrat sauvegardé en base et téléchargé !', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Erreur lors de la sauvegarde', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const goTo = n => setStep(n);
   const prev = () => setStep(s => Math.max(0, s - 1));
   const next = () => setStep(s => Math.min(TOTAL_STEPS - 1, s + 1));
@@ -861,6 +903,11 @@ export default function ContratGenerator() {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>
                   Générer PDF
                 </button>
+                <button className="cg-btn" onClick={handleSaveContract} disabled={saving}
+                  style={{ background: '#6366f1', color: '#fff', opacity: saving ? 0.7 : 1 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+                </button>
                 <button className="cg-btn cg-btn-primary" onClick={() => setShowSendModal(true)}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 2 15 22 11 13 2 9 22 2" /><line x1="22" y1="2" x2="11" y2="13" /></svg>
                   Envoyer au client
@@ -880,6 +927,8 @@ export default function ContratGenerator() {
         <SendContractModal
           onClose={() => setShowSendModal(false)}
           form={form}
+          livrables={livrables}
+          echeances={echeances}
           showToast={showToast}
         />
       )}
@@ -894,18 +943,16 @@ export default function ContratGenerator() {
 }
 
 // ─── Modal d'envoi au client ──────────────────────────────────────────────────
-function SendContractModal({ onClose, form, showToast }) {
+function SendContractModal({ onClose, form, livrables, echeances, showToast }) {
   const { user, login } = useContext(AuthContext);
   const [password, setPassword] = useState('');
-  const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   const [allClients, setAllClients] = useState([]);
   const [selectedClientEmail, setSelectedClientEmail] = useState(form.c_email || '');
-  
+
   const [allProjects, setAllProjects] = useState([]);
-  const [search, setSearch] = useState('');
   const [showAll, setShowAll] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [fetchingData, setFetchingData] = useState(true);
@@ -915,8 +962,8 @@ function SendContractModal({ onClose, form, showToast }) {
     const fetchData = async () => {
       try {
         const [usersRes, tasksRes] = await Promise.all([
-          axios.get('http://localhost:5000/api/auth/users?role=client'),
-          axios.get('http://localhost:5000/api/tasks')
+          api.get('/api/auth/users?role=client'),
+          api.get('/api/tasks')
         ]);
         
         setAllClients(usersRes.data);
@@ -952,18 +999,9 @@ function SendContractModal({ onClose, form, showToast }) {
   const filteredProjects = allProjects.filter(p => {
     const pEmail = (p.clientEmail || '').trim().toLowerCase();
     const cEmail = (selectedClientEmail || '').trim().toLowerCase();
-    
-    const matchesSearch = p.title?.toLowerCase().includes(search.toLowerCase());
-    
-    if (showAll) return matchesSearch;
-    
-    // On compare l'email du projet avec l'email du client sélectionné
-    const matchesClient = pEmail === cEmail;
-    
-    return matchesClient && matchesSearch;
+    if (showAll) return true;
+    return pEmail === cEmail;
   });
-
-  console.log('Projets filtrés:', filteredProjects.length, 'pour le client:', selectedClientEmail);
 
   // Auto-sélection si un seul projet est trouvé après filtrage
   useEffect(() => {
@@ -979,40 +1017,58 @@ function SendContractModal({ onClose, form, showToast }) {
   const handleSend = async (e) => {
     e.preventDefault();
     if (!selectedProjectId) return setError('Veuillez sélectionner un projet pour ce client.');
-    if (!file) return setError('Veuillez sélectionner le fichier PDF généré.');
-    if (!password) return setError('Veuillez entrer votre mot de passe pour confirmer.');
+    if (!password)          return setError('Veuillez entrer votre mot de passe pour confirmer.');
 
     setLoading(true);
     setError('');
 
     try {
-      console.log('Validation pour:', user?.email);
       const isAuth = await login(user?.email, password);
       if (!isAuth) {
         setLoading(false);
         return setError('Mot de passe incorrect. Action annulée.');
       }
 
+      // Générer le PDF automatiquement depuis le formulaire
+      const doc     = buildPDF(form, livrables, echeances);
+      const pdfBlob = doc.output('blob');
+      const pdfFile = new File([pdfBlob], `${form.ct_ref || 'contrat'}.pdf`, { type: 'application/pdf' });
+
+      const selectedProject = allProjects.find(p => p._id === selectedProjectId);
+      const clientName      = allClients.find(c => c.email === selectedClientEmail)?.name || form.c_name;
+      const ht  = parseFloat(form.fi_ht)  || 0;
+      const tva = parseFloat(form.fi_tva) || 0;
+      const ttc = (ht * (1 + tva / 100)).toFixed(2);
+
       const fd = new FormData();
-      fd.append('pdf', file); // 'pdf' pour match contractRoute.js
-      fd.append('ref', form.ct_ref);
-      fd.append('title', `Contrat: ${form.c_name}`);
-      fd.append('clientEmail', selectedClientEmail);
-      fd.append('clientName', allClients.find(c => c.email === selectedClientEmail)?.name || form.c_name);
-      
-      // On envoie via l'API dédiée aux contrats pour le suivi
-      await axios.post('http://localhost:5000/api/contracts/send', fd);
+      fd.append('pdf',                pdfFile);
+      fd.append('ref',                form.ct_ref);
+      fd.append('title',              `Contrat: ${clientName}`);
+      fd.append('clientEmail',        selectedClientEmail);
+      fd.append('clientName',         clientName);
+      fd.append('projectTitle',       selectedProject?.title || form.pr_title || '');
+      fd.append('prestataireEmail',   form.p_email);
+      fd.append('prestataireCompany', form.p_company);
+      fd.append('prestataireTel',     form.p_tel);
+      fd.append('montantTtc',         `${ttc} ${form.fi_devise}`);
+      fd.append('devise',             form.fi_devise);
+      fd.append('dateSignature',      form.ct_date);
 
-      // On garde aussi l'upload sur la tâche pour l'historique projet
+      await api.post('/api/contracts/send', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
       const fdTask = new FormData();
-      fdTask.append('files', file);
-      await axios.post(`http://localhost:5000/api/tasks/${selectedProjectId}/upload/chef`, fdTask);
+      fdTask.append('files', pdfFile);
+      await api.post(`/api/tasks/${selectedProjectId}/upload/chef`, fdTask, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
 
-      showToast('Le contrat a été envoyé et rattaché au projet avec succès !', 'success');
+      showToast('Contrat généré et envoyé au client avec succès !', 'success');
       onClose();
     } catch (err) {
       console.error(err);
-      setError('Une erreur est survenue lors de l\'envoi du fichier.');
+      setError("Une erreur est survenue lors de l'envoi.");
     } finally {
       setLoading(false);
     }
@@ -1083,18 +1139,6 @@ function SendContractModal({ onClose, form, showToast }) {
                 )}
               </>
             )}
-          </div>
-
-          <div className="cg-field cg-full" style={{ marginBottom: 16 }}>
-            <label className="cg-label">Fichier PDF du contrat</label>
-            <input
-              type="file"
-              accept=".pdf"
-              className="field-input"
-              onChange={e => setFile(e.target.files[0])}
-              style={{ padding: '8px', fontSize: 12 }}
-              required
-            />
           </div>
 
           <div className="cg-field cg-full" style={{ marginBottom: 20 }}>
