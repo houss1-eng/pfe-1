@@ -25,3 +25,10 @@ Thumbs.db
 # Uploads & Generated
 backend/uploads/
 backend/generated/
+
+# Template sources (not part of the project)
+dash-template/
+frontend-template/
+
+# Claude Code memory
+.claude/

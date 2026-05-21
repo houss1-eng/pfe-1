@@ -23,6 +23,7 @@ router.get('/',        auth, taskController.getTasks);
 router.post('/',       auth, taskController.createTask);
 router.put('/:id',     auth, taskController.updateTask);
 router.delete('/:id',  auth, taskController.deleteTask);
+router.post('/:id/assign', auth, taskController.assignTask);
 router.post('/:id/upload/:role', auth, upload.array('files', 10), taskController.uploadFiles);
 
 module.exports = router;

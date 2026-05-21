@@ -16,15 +16,16 @@ const STATUS_NOTIFICATIONS = {
                           { role: 'client',    msg: (t) => `🎉 Votre projet est terminé : "${t.title}"` }],
 };
 
-async function pushNotification(status, task) {
+async function pushNotification(status, task, triggeredById) {
   const targets = STATUS_NOTIFICATIONS[status];
   if (!targets) return;
   await Promise.all(targets.map(cfg =>
     Notification.create({
-      message:   cfg.msg(task),
-      role:      cfg.role,
-      taskId:    task._id,
-      taskTitle: task.title,
+      message:           cfg.msg(task),
+      role:              cfg.role,
+      taskId:            task._id,
+      taskTitle:         task.title,
+      triggeredByUserId: triggeredById,
     })
   ));
 }
@@ -50,13 +51,16 @@ exports.getTasks = async (req, res) => {
 
 exports.createTask = async (req, res) => {
   try {
-    const { title, description, priority, deadline } = req.body;
+    const { title, description, priority, deadline, projectType, budget, technologies } = req.body;
 
     const task = new Task({
       title,
       description,
       priority,
       deadline: deadline || undefined,
+      projectType:  projectType  || undefined,
+      budget:       budget       || undefined,
+      technologies: technologies || undefined,
       status: 'pending_chef',
       clientEmail: req.user.email,
       log: [{ time: new Date().toLocaleString('fr-FR'), msg: `Projet soumis par ${req.user.name}` }]
@@ -65,12 +69,13 @@ exports.createTask = async (req, res) => {
     const savedTask = await task.save();
     res.status(201).json(savedTask);
     // fire-and-forget : n'affecte pas la réponse en cas d'erreur
-    pushNotification('pending_chef', savedTask).catch(console.error);
+    pushNotification('pending_chef', savedTask, req.user.id).catch(console.error);
     Notification.create({
-      message:   `✅ Votre projet "${savedTask.title}" a été soumis avec succès`,
-      role:      'client',
-      taskId:    savedTask._id,
-      taskTitle: savedTask.title,
+      message:           `✅ Votre projet "${savedTask.title}" a été soumis avec succès`,
+      role:              'client',
+      taskId:            savedTask._id,
+      taskTitle:         savedTask.title,
+      triggeredByUserId: req.user.id,
     }).catch(console.error);
   } catch (error) {
     res.status(500).json({ message: 'Erreur serveur' });
@@ -100,15 +105,16 @@ exports.updateTask = async (req, res) => {
     res.json(updatedTask);
 
     if (status && status !== prevStatus) {
-      pushNotification(status, updatedTask).catch(console.error);
+      pushNotification(status, updatedTask, req.user.id).catch(console.error);
     }
 
     if (notifyChef && logMsg) {
       Notification.create({
-        message:   `💬 Message client sur "${updatedTask.title}" : ${logMsg.replace('💬 Message du client : ', '')}`,
-        role:      'chef',
-        taskId:    updatedTask._id,
-        taskTitle: updatedTask.title,
+        message:           `💬 Message client sur "${updatedTask.title}" : ${logMsg.replace('💬 Message du client : ', '')}`,
+        role:              'chef',
+        taskId:            updatedTask._id,
+        taskTitle:         updatedTask.title,
+        triggeredByUserId: req.user.id,
       }).catch(console.error);
     }
   } catch (error) {
@@ -126,6 +132,34 @@ exports.deleteTask = async (req, res) => {
   }
 };
 
+exports.assignTask = async (req, res) => {
+  try {
+    const { designerId, devId, chefNote } = req.body;
+    const task = await Task.findById(req.params.id);
+    if (!task) return res.status(404).json({ message: 'Projet introuvable' });
+
+    if (designerId) {
+      task.assignedDesignerId = designerId;
+      task.status = 'assigned_designer';
+      task.log.push({ time: new Date().toLocaleString('fr-FR'), msg: 'Chef a assigné le projet au Designer' });
+    } else if (devId) {
+      task.assignedDevId = devId;
+      task.status = 'assigned_dev';
+      task.log.push({ time: new Date().toLocaleString('fr-FR'), msg: 'Chef a assigné le projet au Développeur' });
+    } else {
+      return res.status(400).json({ message: 'designerId ou devId requis' });
+    }
+
+    if (chefNote !== undefined) task.chefNote = chefNote;
+
+    const updatedTask = await task.save();
+    res.json(updatedTask);
+    pushNotification(updatedTask.status, updatedTask, req.user.id).catch(console.error);
+  } catch (error) {
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
 exports.uploadFiles = async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
@@ -138,9 +172,10 @@ exports.uploadFiles = async (req, res) => {
       uploadedAt: new Date().toLocaleString('fr-FR'),
     }));
 
-    if (role === 'designer') task.designerFiles.push(...newFiles);
-    else if (role === 'chef')     task.chefFiles.push(...newFiles);
-    else if (role === 'dev')      task.devFiles.push(...newFiles);
+    if (role === 'designer')    task.designerFiles.push(...newFiles);
+    else if (role === 'chef')   task.chefFiles.push(...newFiles);
+    else if (role === 'dev')    task.devFiles.push(...newFiles);
+    else if (role === 'client') task.clientFiles.push(...newFiles);
 
     await task.save();
     res.json({ files: newFiles });

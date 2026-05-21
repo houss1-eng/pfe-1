@@ -18,7 +18,10 @@ const UserSchema = new mongoose.Schema({
     type: String,
     enum: ['client', 'chef', 'designer', 'developer'],
     required: true,
-  }
+  },
+  avatar: {
+    type: String,
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);

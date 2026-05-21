@@ -4,7 +4,10 @@ exports.getNotifications = async (req, res) => {
   try {
     const { role } = req.query;
     if (!role) return res.status(400).json({ message: 'role requis' });
-    const notifications = await Notification.find({ role })
+    const notifications = await Notification.find({
+      role,
+      triggeredByUserId: { $ne: String(req.user.id) },
+    })
       .sort({ createdAt: -1 })
       .limit(50);
     res.json(notifications);
