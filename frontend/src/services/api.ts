@@ -3,6 +3,7 @@ import axios from 'axios';
 
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 export const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || 'http://localhost:5678/webhook-test/generate-wireframe';
+export const N8N_CODE_WEBHOOK_URL = import.meta.env.VITE_N8N_CODE_WEBHOOK_URL || 'http://localhost:5678/webhook-test/generate-code';
 
 const api = axios.create({ baseURL: API_URL });
 
@@ -17,6 +18,15 @@ const d = (r: { data: any }) => r.data;
 // ── Wireframes ──────────────────────────────────────────────────────────────
 export const generateWireframe = (data: { prompt: string; projectName?: string; description?: string }) =>
   api.post('/api/n8n/generate', data).then(d);
+
+export const generateCodeFromImage = (file: File) => {
+  const form = new FormData();
+  form.append('image', file);
+  return api.post('/api/n8n/generate-code', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 120000,
+  }).then(d);
+};
 
 export const listWireframes = (): Promise<any[]> =>
   api.get('/api/wireframes').then((r: { data: any }) => r.data.wireframes || []);

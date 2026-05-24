@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const { sendWelcomeEmail } = require('../utils/emailService');
 
 exports.register = async (req, res) => {
   try {
@@ -18,6 +19,12 @@ exports.register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
     const user = await User.create({ name, email, password: hashedPassword, role });
+
+    // Envoi de l'email de bienvenue avec les identifiants (fire-and-forget)
+    sendWelcomeEmail({ name, email, password, role }).catch((err) =>
+      console.error('[EmailService] Échec envoi email de bienvenue:', err.message)
+    );
+
     res.status(201).json({ message: 'Utilisateur créé avec succès', user: { id: user._id, name: user.name, email: user.email, role: user.role } });
   } catch (error) {
     res.status(500).json({ message: 'Erreur serveur', error: error.message });

@@ -1,3 +1,6 @@
+const { setDefaultResultOrder } = require('dns');
+setDefaultResultOrder('ipv4first');
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -11,7 +14,7 @@ dotenv.config();
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '20mb' }));
 
 // Servir les fichiers uploadés
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

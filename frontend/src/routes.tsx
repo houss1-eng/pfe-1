@@ -15,9 +15,7 @@ const modules = import.meta.glob("./pages/**/page.tsx");
 // Lazy load page components
 const lazyLoad = (path: string) => {
   let key: string;
-  if (path === "/") {
-    key = "./pages/page.tsx";
-  } else if (path.startsWith("/auth")) {
+  if (path.startsWith("/auth")) {
     key = `./pages/auth${path.substring(5)}/page.tsx`;
   } else {
     key = `./pages/app${path}/page.tsx`;
@@ -83,8 +81,8 @@ const authRoutes = generateAuthRoutes();
 const AppRoutes = () => {
   return (
     <Routes>
-      {/* Landing page — public, no auth required */}
-      <Route path="/" element={lazyLoad("/")} />
+      {/* Root — redirect to app (handles auth + role redirect) */}
+      <Route path="/" element={<Navigate to="/app" replace />} />
 
       {/* /app → role-based dashboard redirect */}
       <Route path="/app" element={<RoleRedirect />} />

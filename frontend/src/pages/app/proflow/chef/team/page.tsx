@@ -6,6 +6,7 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import { getUsers } from '@/services/api';
 import api from '@/services/api';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 type Member = { _id: string; name: string; email: string; role: string; createdAt: string };
 
@@ -24,6 +25,7 @@ export default function Page() {
   const [error, setError] = useState('');
   const [openRole, setOpenRole] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const { confirm, dialog } = useConfirm();
 
   const load = () => {
     getUsers().then(setMembers).catch(() => setError('Erreur de chargement')).finally(() => setLoading(false));
@@ -32,7 +34,7 @@ export default function Page() {
   useEffect(() => { load(); }, []);
 
   const handleDelete = async (userId: string, userName: string, role: string) => {
-    if (!window.confirm(`Supprimer "${userName}" définitivement ?`)) return;
+    if (!await confirm(`Supprimer "${userName}" définitivement ?`, { danger: true, confirmLabel: 'Supprimer' })) return;
     try {
       await api.delete(`/api/auth/users/${userId}`);
       setMembers(prev => prev.filter(u => u._id !== userId));
@@ -50,6 +52,7 @@ export default function Page() {
 
   return (
     <Box className="flex flex-col gap-4">
+      {dialog}
       <Box className="flex items-center justify-between flex-wrap gap-2">
         <Box>
           <Typography variant="h4" fontWeight={700}>Statistiques de l'équipe</Typography>

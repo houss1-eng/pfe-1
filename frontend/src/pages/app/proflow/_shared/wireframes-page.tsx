@@ -4,6 +4,7 @@ import {
   CircularProgress, Collapse, Typography,
 } from '@mui/material';
 import { listWireframes, deleteWireframe, API_URL } from '@/services/api';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 type Wireframe = {
   _id: string; name: string; description?: string; createdAt: string;
@@ -18,6 +19,7 @@ export default function WireframesPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [viewId, setViewId] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const { confirm, dialog } = useConfirm();
 
   const load = () => {
     setLoading(true);
@@ -30,7 +32,7 @@ export default function WireframesPage() {
   useEffect(() => { load(); }, []);
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Supprimer ce wireframe ?')) return;
+    if (!await confirm('Supprimer ce wireframe ?', { danger: true, confirmLabel: 'Supprimer' })) return;
     setDeletingId(id);
     try {
       await deleteWireframe(id);
@@ -44,6 +46,7 @@ export default function WireframesPage() {
 
   return (
     <Box className="flex flex-col gap-4">
+      {dialog}
       <Box className="flex items-center justify-between">
         <Typography variant="h4" fontWeight={700}>Mes Wireframes</Typography>
         <Button variant="outlined" size="small" onClick={load}>Actualiser</Button>

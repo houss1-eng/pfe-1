@@ -5,6 +5,7 @@ import {
   TextField, Typography,
 } from '@mui/material';
 import { getTasks, getUsers, updateTask, assignTask, uploadChefFiles, API_URL } from '@/services/api';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 const ACTION_STATUSES = ['pending_chef', 'review_chef_design', 'approved_client', 'rejected_client', 'review_chef_dev'];
 
@@ -44,6 +45,7 @@ export default function Page() {
   const [assignDesigner, setAssignDesigner] = useState<Record<string, string>>({});
   const [assignDev, setAssignDev] = useState<Record<string, string>>({});
   const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { confirm, dialog } = useConfirm();
 
   const load = useCallback(() => {
     Promise.all([getTasks(), getUsers()])
@@ -61,7 +63,7 @@ export default function Page() {
   };
 
   const doAction = async (id: string, action: () => Promise<unknown>, msg: string) => {
-    if (!window.confirm('Confirmer cette action ?')) return;
+    if (!await confirm('Confirmer cette action ?')) return;
     setError('');
     try {
       const taskFiles = chefFiles[id];
@@ -90,6 +92,7 @@ export default function Page() {
 
   return (
     <Box className="flex flex-col gap-4">
+      {dialog}
       <Typography variant="h4" fontWeight={700}>Actions requises</Typography>
       <Typography variant="body2" color="text.secondary">Projets nécessitant votre intervention</Typography>
 

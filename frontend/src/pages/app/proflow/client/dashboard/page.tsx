@@ -1,17 +1,18 @@
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 import {
   Alert, Avatar, Box, Button, Card, CardContent, Chip, CircularProgress,
-  Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl,
-  IconButton, InputLabel, LinearProgress, MenuItem, Select, Step,
-  StepLabel, Stepper, TextField, Tooltip, Typography,
+  Dialog, DialogActions, DialogContent, DialogTitle, Divider,
+  IconButton, LinearProgress, Step, StepLabel, Stepper, TextField, Tooltip, Typography,
 } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import DownloadIcon from '@mui/icons-material/Download';
 import SendIcon from '@mui/icons-material/Send';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
-import { AuthContext } from '@/context/AuthContext';
-import { createTask, getTasks, updateTask, deleteTask, uploadClientFiles } from '@/services/api';
+import { getTasks, updateTask, deleteTask } from '@/services/api';
 import { API_URL } from '@/services/api';
 
 const STATUS_PROGRESS: Record<string, number> = {
@@ -52,63 +53,22 @@ type Task = {
 };
 
 export default function Page() {
-  const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [title, setTitle] = useState('');
-  const [desc, setDesc] = useState('');
-  const [prio, setPrio] = useState('medium');
-  const [deadline, setDeadline] = useState('');
-  const [projectType, setProjectType] = useState('');
-  const [budget, setBudget] = useState('');
-  const [technologies, setTechnologies] = useState('');
-  const [cahierFile, setCahierFile] = useState<File | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [msgText, setMsgText] = useState('');
   const [sendingMsg, setSendingMsg] = useState(false);
   const [error, setError] = useState('');
+  const { confirm, dialog } = useConfirm();
 
   const load = () => {
     getTasks().then(setTasks).finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, []);
 
-  const stats = useMemo(() => ({
-    active: tasks.filter(t => !['completed', 'delivered'].includes(t.status)).length,
-    review: tasks.filter(t => ['review_client', 'delivered'].includes(t.status)).length,
-    inDev: tasks.filter(t => ['assigned_dev', 'in_progress_dev', 'review_chef_dev'].includes(t.status)).length,
-    completed: tasks.filter(t => ['completed', 'delivered'].includes(t.status)).length,
-  }), [tasks]);
-
-  const submitTask = async () => {
-    if (!title.trim() || !desc.trim()) return setError('Remplissez le titre et la description');
-    setSubmitting(true);
-    setError('');
-    try {
-      const task = await createTask({
-        title, description: desc, priority: prio,
-        deadline: deadline || undefined,
-        projectType: projectType || undefined,
-        budget: budget || undefined,
-        technologies: technologies || undefined,
-      });
-      if (cahierFile) {
-        const fd = new FormData();
-        fd.append('files', cahierFile);
-        await uploadClientFiles(task._id, fd);
-      }
-      setTitle(''); setDesc(''); setPrio('medium'); setDeadline('');
-      setProjectType(''); setBudget(''); setTechnologies(''); setCahierFile(null);
-      setShowForm(false);
-      load();
-    } catch { setError('Erreur lors de la soumission'); }
-    finally { setSubmitting(false); }
-  };
-
   const updateStatus = async (id: string, status: string, logMsg: string) => {
-    if (!window.confirm('Confirmer cette action ?')) return;
+    if (!await confirm('Confirmer cette action ?')) return;
     try {
       await updateTask(id, { status, logMsg });
       load();
@@ -116,7 +76,7 @@ export default function Page() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Supprimer ce projet définitivement ?')) return;
+    if (!await confirm('Supprimer ce projet définitivement ?', { danger: true, confirmLabel: 'Supprimer' })) return;
     try {
       await deleteTask(id);
       setSelectedTask(null);
@@ -139,176 +99,28 @@ export default function Page() {
 
   return (
     <Box className="flex flex-col gap-4">
+      {dialog}
       <Box className="flex items-center justify-between flex-wrap gap-2">
-        <Typography variant="h4" fontWeight={700}>
-          Bonjour, {user?.name?.split(' ')[0]} 👋
-        </Typography>
+        <Box>
+          <Typography variant="h4" fontWeight={700}>Mes Projets</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Liste et suivi de vos projets
+          </Typography>
+        </Box>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          size="small"
+          onClick={() => navigate('/proflow/client/new-project')}
+        >
+          Nouveau projet
+        </Button>
       </Box>
 
       {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
 
-      {/* Stats */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 2 }}>
-        {[
-          { label: 'Projets actifs', value: stats.active, color: '#6366f1' },
-          { label: 'En attente validation', value: stats.review, color: '#f59e0b' },
-          { label: 'En développement', value: stats.inDev, color: '#10b981' },
-          { label: 'Livrés', value: stats.completed, color: '#6b7280' },
-        ].map(k => (
-          <Card key={k.label} sx={{ borderLeft: `3px solid ${k.color}` }}>
-            <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-              <Typography variant="caption" color="text.secondary">{k.label}</Typography>
-              <Typography variant="h4" fontWeight={800} sx={{ color: k.color }}>{k.value}</Typography>
-            </CardContent>
-          </Card>
-        ))}
-      </Box>
-
-      {/* New project button */}
-      <Button
-        variant="contained" sx={{ alignSelf: 'flex-start' }}
-        onClick={() => setShowForm(v => !v)}
-      >
-        {showForm ? '− Annuler' : '+ Soumettre un nouveau projet'}
-      </Button>
-
-      {showForm && (
-        <Card sx={{ borderTop: '3px solid', borderColor: 'primary.main' }}>
-          <CardContent>
-            <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>📋 Nouvelle demande de projet</Typography>
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2.5 }}>
-              Remplissez les informations pour soumettre votre projet à l'équipe.
-            </Typography>
-
-            {/* Section 1 — Informations de base */}
-            <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', mb: 1 }}>
-              Informations générales
-            </Typography>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
-              <TextField
-                label="Titre du projet *" size="small" value={title}
-                onChange={e => setTitle(e.target.value)}
-                placeholder="Ex: Site vitrine pour mon entreprise"
-              />
-              <FormControl size="small">
-                <InputLabel>Type de projet</InputLabel>
-                <Select value={projectType} onChange={e => setProjectType(e.target.value)} label="Type de projet">
-                  <MenuItem value="">— Sélectionner —</MenuItem>
-                  <MenuItem value="site-vitrine">🌐 Site vitrine</MenuItem>
-                  <MenuItem value="e-commerce">🛒 E-commerce</MenuItem>
-                  <MenuItem value="application-web">💻 Application web</MenuItem>
-                  <MenuItem value="application-mobile">📱 Application mobile</MenuItem>
-                  <MenuItem value="dashboard">📊 Dashboard / Back-office</MenuItem>
-                  <MenuItem value="redesign">🎨 Refonte / Redesign</MenuItem>
-                  <MenuItem value="autre">📁 Autre</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControl size="small">
-                <InputLabel>Priorité</InputLabel>
-                <Select value={prio} onChange={e => setPrio(e.target.value)} label="Priorité">
-                  <MenuItem value="low">🟢 Faible</MenuItem>
-                  <MenuItem value="medium">🟡 Moyen</MenuItem>
-                  <MenuItem value="high">🔴 Urgent</MenuItem>
-                </Select>
-              </FormControl>
-              <TextField
-                label="Date limite (optionnel)" size="small" type="date" value={deadline}
-                onChange={e => setDeadline(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Box>
-
-            <TextField
-              fullWidth multiline rows={3} label="Description détaillée *" size="small"
-              value={desc} onChange={e => setDesc(e.target.value)}
-              placeholder="Décrivez votre projet, vos objectifs, votre cible…"
-              sx={{ mb: 2 }}
-            />
-
-            <Divider sx={{ my: 2 }} />
-
-            {/* Section 2 — Budget & Technos */}
-            <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', mb: 1 }}>
-              Budget & Technologies
-            </Typography>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
-              <FormControl size="small">
-                <InputLabel>Budget estimé</InputLabel>
-                <Select value={budget} onChange={e => setBudget(e.target.value)} label="Budget estimé">
-                  <MenuItem value="">— Non défini —</MenuItem>
-                  <MenuItem value="<1000">Moins de 1 000 €</MenuItem>
-                  <MenuItem value="1000-3000">1 000 – 3 000 €</MenuItem>
-                  <MenuItem value="3000-5000">3 000 – 5 000 €</MenuItem>
-                  <MenuItem value="5000-10000">5 000 – 10 000 €</MenuItem>
-                  <MenuItem value=">10000">Plus de 10 000 €</MenuItem>
-                  <MenuItem value="a-discuter">À discuter</MenuItem>
-                </Select>
-              </FormControl>
-              <TextField
-                label="Technologies souhaitées (optionnel)" size="small"
-                value={technologies} onChange={e => setTechnologies(e.target.value)}
-                placeholder="Ex: React, Node.js, WordPress…"
-              />
-            </Box>
-
-            <Divider sx={{ my: 2 }} />
-
-            {/* Section 3 — Cahier de charge */}
-            <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', mb: 1 }}>
-              Cahier de charge
-            </Typography>
-            <Box
-              sx={{
-                border: '2px dashed', borderColor: cahierFile ? 'success.main' : 'divider',
-                borderRadius: 2, p: 2, textAlign: 'center', bgcolor: cahierFile ? 'success.light' : 'action.hover',
-                transition: 'all .2s',
-              }}
-            >
-              {cahierFile ? (
-                <Box className="flex items-center justify-center gap-2">
-                  <Typography variant="body2" fontWeight={600} color="success.dark">
-                    📄 {cahierFile.name}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    ({(cahierFile.size / 1024).toFixed(0)} Ko)
-                  </Typography>
-                  <Button size="small" color="error" onClick={() => setCahierFile(null)} sx={{ minWidth: 0, px: 1 }}>✕</Button>
-                </Box>
-              ) : (
-                <Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    Glissez votre fichier ici ou cliquez pour sélectionner
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5 }}>
-                    PDF, Word, Excel — max 10 Mo
-                  </Typography>
-                </Box>
-              )}
-              <Button
-                variant="outlined" size="small" component="label"
-                sx={{ mt: cahierFile ? 1 : 0 }}
-              >
-                {cahierFile ? '🔄 Changer le fichier' : '📎 Joindre un cahier de charge'}
-                <input
-                  type="file" hidden
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-                  onChange={e => setCahierFile(e.target.files?.[0] || null)}
-                />
-              </Button>
-            </Box>
-
-            <Box className="flex justify-end gap-2" sx={{ mt: 3 }}>
-              <Button variant="outlined" onClick={() => setShowForm(false)}>Annuler</Button>
-              <Button variant="contained" disabled={submitting} onClick={submitTask}>
-                {submitting ? <CircularProgress size={16} color="inherit" /> : '🚀 Soumettre le projet'}
-              </Button>
-            </Box>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Projects list */}
-      <Typography variant="h6" fontWeight={600}>Mes projets ({tasks.length})</Typography>
+      <Typography variant="h6" fontWeight={600}>Tous les projets ({tasks.length})</Typography>
 
       <Box className="flex flex-col gap-2">
         {!tasks.length && (

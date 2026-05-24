@@ -2,6 +2,8 @@ const express = require('express');
 const axios = require('axios');
 const path = require('path');
 const fs = require('fs');
+const multer = require('multer');
+const FormData = require('form-data');
 const router = express.Router();
 const Wireframe = require('../models/Wireframe');
 const { generateSVGFromElements, generateElementsFromPrompt } = require('../utils/wireframeUtils');
@@ -12,7 +14,11 @@ if (!fs.existsSync(generatedDir)) fs.mkdirSync(generatedDir, { recursive: true }
 
 // Configuration n8n
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook-test/generate-wireframe';
+const N8N_CODE_WEBHOOK_URL = process.env.N8N_CODE_WEBHOOK_URL || 'http://localhost:5678/webhook-test/generate-code';
 console.log('N8N_WEBHOOK_URL configuré:', N8N_WEBHOOK_URL);
+
+// Multer en mémoire pour le générateur de code
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 // Réception image PNG binaire depuis n8n (évite le base64 tronqué)
 router.post('/upload-image', express.raw({ type: '*/*', limit: '20mb' }), async (req, res) => {
@@ -301,6 +307,47 @@ router.get('/templates', (req, res) => {
     success: true,
     templates
   });
+});
+
+// Générer du code HTML/CSS — backend → n8n (image-to-json + OpenRouter intégrés)
+router.post('/generate-code', upload.single('image'), async (req, res) => {
+  console.log('=== /generate-code reçu ===');
+
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: 'image (fichier) requis.' });
+  }
+
+  console.log(`📤 Fichier reçu: ${req.file.originalname} (${req.file.size} bytes)`);
+
+  const imageBase64 = req.file.buffer.toString('base64');
+  const mimeType = req.file.mimetype;
+
+  try {
+    console.log(`📤 Envoi vers n8n code-generator: ${N8N_CODE_WEBHOOK_URL}`);
+    const n8nResponse = await axios.post(
+      N8N_CODE_WEBHOOK_URL,
+      { imageBase64, mimeType },
+      { timeout: 120000 }
+    );
+    console.log('📥 Réponse n8n:', n8nResponse.status);
+    const { html = '', css = '', error } = n8nResponse.data || {};
+    if (error) {
+      return res.status(502).json({ success: false, message: `OpenRouter: ${error}` });
+    }
+    if (!html && !css) {
+      return res.status(502).json({ success: false, message: "n8n n'a retourné aucun code HTML/CSS.", detail: n8nResponse.data });
+    }
+    return res.json({ success: true, html, css });
+  } catch (error) {
+    console.error('❌ Erreur generate-code:', error.code, error.message);
+    if (error.code === 'ECONNREFUSED') {
+      return res.status(503).json({ success: false, message: 'n8n non disponible sur le port 5678.' });
+    }
+    if (error.response) {
+      return res.status(502).json({ success: false, message: `n8n erreur ${error.response.status}: ${JSON.stringify(error.response.data).substring(0, 200)}` });
+    }
+    res.status(500).json({ success: false, message: `[${error.code || 'ERR'}] ${error.message}` });
+  }
 });
 
 module.exports = router;

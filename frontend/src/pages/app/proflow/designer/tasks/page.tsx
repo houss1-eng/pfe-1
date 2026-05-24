@@ -5,6 +5,7 @@ import {
   Typography,
 } from '@mui/material';
 import { getTasks, updateTask, uploadDesignerFiles, API_URL } from '@/services/api';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 type Task = {
   _id: string; title: string; description: string; status: string;
@@ -36,6 +37,7 @@ export default function Page() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { confirm, dialog } = useConfirm();
 
   const fetchDone = async () => {
     try {
@@ -66,7 +68,7 @@ export default function Page() {
   }, [statusFilter, search]);
 
   const updateStatus = async (id: string, status: string, logMsg: string, noteStr?: string) => {
-    if (!window.confirm('Confirmer cette action ?')) return;
+    if (!await confirm('Confirmer cette action ?')) return;
     setError('');
     try {
       const taskFiles = files[id];
@@ -93,6 +95,7 @@ export default function Page() {
 
   return (
     <Box className="flex flex-col gap-4">
+      {dialog}
       <Typography variant="h4" fontWeight={700}>Espace Designer</Typography>
       <Typography variant="body2" color="text.secondary">Vos projets assignés et livrables design</Typography>
 
